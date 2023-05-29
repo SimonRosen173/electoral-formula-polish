@@ -1,0 +1,2 @@
+from electoral_formula.formula.amended import NationalFormulaAmended
+from electoral_formula.formula.original import NationalFormulaOriginal
