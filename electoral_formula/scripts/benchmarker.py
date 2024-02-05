@@ -47,7 +47,6 @@ def main():
     # perc-large-votes-max
     parser.add_argument("-plmax", "--perc-large-votes-max", type=float, required=True,
                         help="Maximum percentage of votes reservable for large parties.")
-
     # repeats_per_vote
     parser.add_argument("-rpv", "--repeats_per_vote", type=int,
                         help="Number of repeated runs per specified votes. Only applicable for incr_votes exp")

@@ -1,0 +1,28 @@
+{
+  "exp": {
+    "formula": "amend_orig",
+    "n_runs": 1000,
+    "n_batches": 32,
+    "type": "rand",
+    "seed": 42
+  },
+  "datagen": {
+    "min_n_parties": 1,
+    "pois_mean_n_parties": 48,
+
+    "min_n_inds": 1,
+    "pois_mean_n_inds": 5,
+
+    "pois_mean_n_large_parties": 3,
+
+    "min_perc_large_votes": 0.01,
+    "max_perc_large_votes": 0.99,
+    "norm_mean_perc_large_votes": 0.89,
+    "norm_std_perc_large_votes": 0.1
+  },
+  "cluster": {
+    "partition": "stampede",
+    "job_name": "exp1",
+    "max_parallel_repeats": 32
+  }
+}

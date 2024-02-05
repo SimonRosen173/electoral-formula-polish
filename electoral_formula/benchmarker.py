@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -5,6 +7,60 @@ from tqdm import tqdm
 from electoral_formula.common_static import REGS
 from electoral_formula.formula import NationalFormulaOriginal, NationalFormulaAmended
 from electoral_formula.datagen import RandomGenerator, remove_inds, df_to_str
+
+
+def join_batch_data(n_batches, folder_path, formulas):
+    regs = REGS
+
+    out_folder = f"{folder_path}/agr"
+    if not os.path.exists(out_folder):
+        os.mkdir(out_folder)
+
+    # file_names = {}
+    if formulas == "amend":
+        file_names = {
+            "comp": f"comp_bal",
+            "nat_amend": f"nat_amend"
+        }
+    elif formulas == "orig":
+        file_names = {
+            "comp": f"comp_bal",
+            "nat_orig": f"nat_orig"
+        }
+    elif formulas == "amend_orig":
+        file_names = {
+            "comp": f"comp_bal",
+            "nat_orig": f"nat_orig",
+            "nat_amend": f"nat_amend",
+            "nat_diff": f"nat_diff"
+        }
+    else:
+        raise ValueError(f"formulas={formulas} is not supported")
+
+    file_prefixes = {}
+    for key, val in file_names.items():
+        file_prefixes[key] = f"{folder_path}/{val}"
+
+    for reg in regs:
+        file_prefixes[reg] = f"{folder_path}/reg_{reg}"
+        file_names[reg] = f"reg_{reg}"
+
+    dfs = {}
+    for key, val in file_prefixes.items():
+        try:
+            dfs[key] = pd.read_csv(f"{val}_0.csv")
+        except Exception as e:
+            print(f"Error: {e}. \nkey:{key}\t val:{val}")
+
+    print("Concating...")
+    for i in tqdm(range(1, n_batches)):
+        for key, val in file_prefixes.items():
+            curr_df = pd.read_csv(f"{val}_{i}.csv")
+            dfs[key] = pd.concat([dfs[key], curr_df], ignore_index=True)
+
+    print("Saving...")
+    for key, file_name in file_names.items():
+        dfs[key].to_csv(f"{out_folder}/{file_name}.csv", index=False)
 
 
 def increasing_votes_exp(
@@ -214,8 +270,11 @@ def rand_exp(
         batch_no,
         folder_path,
         data_gen_kwargs,
-        use_original
+        use_original,
+        seed
 ):
+    np.random.seed(seed)
+
     regs = REGS
     tot_nat_amend_stats = {
         "max_diff_seats": 0,
@@ -258,6 +317,8 @@ def rand_exp(
         rand_gen = RandomGenerator(
             **data_gen_kwargs
         )
+
+        # rand_gen.save_reg_bal_dfs(f"{folder_path}/ballot_{i}.csv")
 
         #######################
         # AMENDED NAT FORMULA #

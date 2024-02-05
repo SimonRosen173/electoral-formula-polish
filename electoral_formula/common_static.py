@@ -1,4 +1,5 @@
 # Common static variables
+REGS = ['ec', 'fs', 'gp', 'kzn', 'lp', 'mp', 'nw', 'nc', 'wc']
 
 REG_TOT_VOTES = {
     'ec': 2020527,
