@@ -29,6 +29,8 @@ mkdir /tmp/myrun/data -p
 
 source activate elec
 
+cd /home-mscluster/srosen/code/electoral-formula-polish/electoral_formula
+
 {run_commands}
 
 wait

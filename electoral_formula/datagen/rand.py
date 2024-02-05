@@ -126,7 +126,7 @@ class RandomGenerator:
             comp_tot_votes: int = None,
             comp_tot_seats: int = 200,
 
-            # voter_turnout #
+            # voter_turnout #  # TODO
             voter_turnout: Optional[float] = None,
             vary_voter_turnout_mode: str = "const",
             # `const` - constant across all regions, `reg` - varied across regions
