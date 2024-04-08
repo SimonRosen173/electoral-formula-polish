@@ -1,3 +1,4 @@
+import copy
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -18,6 +19,9 @@ def gen_rand_partitions(tot_votes, n, max_tries=1000, allow_zeros=True):
     is_repeats = True
     tmp_arr = None
 
+    n_zero = 0
+    n_non_zero = n
+
     if not allow_zeros:
         if n > tot_votes:
             raise ValueError(f"n cannot be greater than tot_votes when allow_zeros=False. n={n}, tot_votes={tot_votes}")
@@ -30,15 +34,33 @@ def gen_rand_partitions(tot_votes, n, max_tries=1000, allow_zeros=True):
             if curr_try > max_tries:
                 raise ValueError(f"max_tries={max_tries} reached for tot_votes={tot_votes}, n={n}")
     else:
-        tmp_arr = np.random.randint(0, tot_votes, n - 1)
-        tmp_arr.sort()
+        if tot_votes < n:
+            n_zero = n - tot_votes
+        else:
+            n_zero = 0
+        n_non_zero = n - n_zero
 
-    tmp_arr = np.insert(tmp_arr, 0, 0)
-    tmp_arr = np.append(tmp_arr, tot_votes)
+        if n_non_zero <= 1:
+            tmp_arr = []
+        else:
+            tmp_arr = np.random.randint(0, tot_votes, n_non_zero - 1)
+            tmp_arr.sort()
+
+    if n_non_zero > 0:
+        tmp_arr = np.insert(tmp_arr, 0, 0)
+        tmp_arr = np.append(tmp_arr, tot_votes)
 
     votes = []
     for i in range(len(tmp_arr) - 1):
         votes.append(tmp_arr[i + 1] - tmp_arr[i])
+
+    if n_zero > 0:
+        votes = votes + [0 for _ in range(n_zero)]
+
+    random.shuffle(votes)
+
+    if len(votes) != n:
+        raise ValueError("An issue occurred len(votes) != n")
 
     return votes
 
@@ -127,14 +149,19 @@ class RandomGenerator:
             comp_tot_seats: int = 200,
 
             # voter_turnout #  # TODO
-            voter_turnout: Optional[float] = None,
-            vary_voter_turnout_mode: str = "const",
+            vary_voter_turnout: bool = False,
+            voter_turnout: Optional[Dict[str, float]] = None,
+            vary_voter_turnout_tier: int = 1,  # [1, 2]
             # `const` - constant across all regions, `reg` - varied across regions
-            min_voter_turnout: Optional[float] = None,
-            mean_voter_turnout: Optional[float] = None,
-            std_voter_turnout: Optional[float] = None,
-            max_voter_turnout: Optional[float] = None,
-            voter_turnout_dist: Optional[str] = None,  # ['trunc_normal', 'uniform']
+            min_nat_voter_turnout: float = 0.01,
+            max_nat_voter_turnout: float = 0.99,
+            min_reg_voter_turnout: float = 0.01,
+            max_reg_voter_turnout: float = 0.99,
+            mean_nat_voter_turnout: Optional[float] = None,
+            mean_reg_voter_turnout: Optional[float] = None,
+            std_nat_voter_turnout: Optional[float] = None,
+            std_reg_voter_turnout: Optional[float] = None,
+            dist_type_voter_turnout: Optional[str] = None,  # ['trunc_normal', 'uniform']
 
             # n_parties #
             n_parties: Optional[int] = None,
@@ -153,23 +180,35 @@ class RandomGenerator:
             pois_mean_n_large_parties: Optional[int] = None,  # Poisson distribution
 
             # perc_large_votes #
-            perc_large_votes: Optional[float] = None,
-            min_perc_large_votes: Optional[float] = None,
-            max_perc_large_votes: Optional[float] = None,
-            norm_mean_perc_large_votes: Optional[float] = None,  # Normal distribution of perc_large_votes around 'norm_mean_perc_large_votes'
-            norm_std_perc_large_votes: Optional[float] = None,
+            perc_large_votes: Optional[Dict[str, float]] = None,
+            min_perc_large_votes: float = 0.99,
+            max_perc_large_votes: float = 0.01,
+            # norm_mean_perc_large_votes: Optional[float] = None,  # Normal distribution of perc_large_votes around 'norm_mean_perc_large_votes'
+            # norm_std_perc_large_votes: Optional[float] = None,
+            mean_perc_large_votes: Optional[float] = None,
+            std_perc_large_votes: Optional[float] = None,
+            dist_type_perc_large_votes: str = "trunc_normal",
 
             # n_inds #
             n_inds: Optional[int] = None,  # Number of independents
             min_n_inds: Optional[int] = 1,
             max_n_inds: Optional[int] = None,
-            norm_mean_n_inds: Optional[int] = None,  # Normal distribution of n_ind around 'norm_mean_n_inds'
-            norm_std_n_inds: Optional[int] = None,
-            pois_mean_n_inds: Optional[int] = None,  # Poisson distribution
+            # norm_mean_n_inds: Optional[int] = None,  # Normal distribution of n_ind around 'norm_mean_n_inds'
+            std_n_inds: Optional[int] = None,
+            mean_n_inds: Optional[int] = None,  # Poisson distribution
+            dist_type_n_inds: str = "pois",  # trunc_normal, pois
+            n_inds_mode: str = "nat",  # reg, nat
 
             first_party_vote_perc=None,
 
+            # Percentage of votes assigned to parties #
             perc_reg_parties_votes: Optional[Union[Dict[str, float], float]] = None,
+            min_perc_party_votes: float = 0,
+            max_perc_party_votes: float = 1,
+            mean_perc_party_votes: Optional[float] = None,
+            std_perc_party_votes: Optional[float] = None,
+            dist_type_perc_party_votes: str = "trunc_normal",  # ['trunc_normal', 'uniform']
+
             inflate_votes=False,
             comp_bal_from_reg=True,  # If comp_bal is based off regional values
             gen_rand_votes_fn=gen_rand_partitions,
@@ -211,14 +250,64 @@ class RandomGenerator:
             reg_tot_seats = REG_TOT_SEATS
         self.reg_tot_seats = reg_tot_seats
 
+        self.regs = set(self.reg_tot_seats.keys())
+
         ######################
         # VARY VOTER TURNOUT #
         #####################
         if reg_tot_votes is None:
-            reg_tot_votes = REG_TOT_VOTES
+            reg_tot_votes = copy.deepcopy(REG_TOT_VOTES)
 
-        self.is_vary_voter_turnout = (voter_turnout is not None) or (min_voter_turnout is not None)
+        self.vary_voter_turnout = vary_voter_turnout
+        self.nat_voter_turnout = None
+        if self.vary_voter_turnout:
+            if voter_turnout is None:
+                # Error checking
+                if not 0 < min_nat_voter_turnout < max_nat_voter_turnout < 1:
+                    raise ValueError("min_nat_voter_turnout and/or max_nat_voter_turnout does not satisfy condition:"
+                                     "0 < min_nat_voter_turnout < max_nat_voter_turnout < 1")
+                if not 0 < min_reg_voter_turnout < max_reg_voter_turnout < 1:
+                    raise ValueError("min_reg_voter_turnout and/or max_reg_voter_turnout does not satisfy condition:"
+                                     "0 < min_reg_voter_turnout < max_reg_voter_turnout < 1")
 
+                voter_turnout = {}
+                # UNIFORM
+                if dist_type_voter_turnout == "uniform":
+                    for reg in self.regs:
+                        voter_turnout[reg] = np.random.uniform(min_reg_voter_turnout, max_reg_voter_turnout)
+                # TRUNCATED NORMAL
+                elif dist_type_voter_turnout == "trunc_normal":
+                    if vary_voter_turnout_tier == 1:
+                        # ONE TIER
+                        if mean_reg_voter_turnout is None:
+                            raise ValueError("If vary_voter_turnout_tier=1, then mean_reg_voter_turnout must be set")
+                        for reg in self.regs:
+                            voter_turnout[reg] = trunc_norm(min_reg_voter_turnout, max_reg_voter_turnout,
+                                                            mean=mean_reg_voter_turnout, std=std_reg_voter_turnout, n=1)
+                    elif vary_voter_turnout_tier == 2:
+                        # TWO TIER
+                        if mean_nat_voter_turnout is None or std_nat_voter_turnout is None:
+                            raise ValueError(f"mean_nat_voter_turnout or std_nat_voter_turnout cannot be None")
+
+                        nat_voter_turnout = trunc_norm(min_nat_voter_turnout, max_nat_voter_turnout,
+                                                       mean_nat_voter_turnout, std_nat_voter_turnout, 1)
+
+                        self.nat_voter_turnout = nat_voter_turnout
+
+                        for reg in self.regs:
+                            voter_turnout[reg] = trunc_norm(min_reg_voter_turnout, max_reg_voter_turnout,
+                                                            mean=nat_voter_turnout, std=std_reg_voter_turnout, n=1)
+
+                    else:
+                        raise ValueError(f"vary_voter_turnout_tier={vary_voter_turnout_tier} is not a valid value")
+                else:
+                    raise ValueError(f"dist_type_voter_turnout={dist_type_voter_turnout} is not a valid value")
+
+            # Vary reg tot votes using voter turnout
+            for reg in self.regs:
+                reg_tot_votes[reg] = int(reg_tot_votes[reg] * voter_turnout[reg])
+
+        self.voter_turnout = voter_turnout
         self.reg_tot_votes = reg_tot_votes
 
         ###########################################
@@ -227,7 +316,20 @@ class RandomGenerator:
         if perc_reg_parties_votes is None:
             perc_reg_parties_votes = {}
             for reg in reg_tot_votes.keys():
-                perc_reg_parties_votes[reg] = np.random.rand()
+                if not 0 <= min_perc_party_votes < max_perc_party_votes <= 1:
+                    raise ValueError(f"min_perc_party_votes={min_perc_party_votes} and/or "
+                                     f"max_perc_party_votes={max_perc_party_votes} does "
+                                     f"not satisfy 0 <= min_perc_party_votes < max_perc_party_votes <=1")
+                if dist_type_perc_party_votes == "uniform":
+                    perc_reg_parties_votes[reg] = np.random.rand()
+                elif dist_type_perc_party_votes == "trunc_normal":
+                    if mean_perc_party_votes is None or std_perc_party_votes is None:
+                        raise ValueError
+
+                    perc_reg_parties_votes[reg] = trunc_norm(min_val=min_perc_large_votes, max_val=max_perc_large_votes,
+                                                             mean=mean_perc_party_votes, std=std_perc_party_votes, n=1)
+                else:
+                    raise ValueError(f"dist_type_perc_party_votes={dist_type_perc_party_votes} is not a valid value")
         elif type(perc_reg_parties_votes) == float:
             tmp_perc = perc_reg_parties_votes
             perc_reg_parties_votes = {}
@@ -276,7 +378,8 @@ class RandomGenerator:
         #################
         # N LARGE PARTIES #
         #################
-        large_parties_vals = [min_n_large_parties, max_n_large_parties, norm_mean_n_large_parties, norm_std_n_large_parties, pois_mean_n_large_parties]
+        large_parties_vals = [min_n_large_parties, max_n_large_parties, norm_mean_n_large_parties,
+                              norm_std_n_large_parties, pois_mean_n_large_parties]
         self.is_large_parties = not np.all([x is None for x in large_parties_vals])
         if n_large_parties is not None and n_large_parties == 0:
             self.is_large_parties = False
@@ -334,86 +437,106 @@ class RandomGenerator:
         #     pass
         # else:
         if self.is_large_parties:
-
-            if min_perc_large_votes is None:
-                min_perc_large_votes = 0
-            if max_perc_large_votes is None:
-                max_perc_large_votes = 1
-            assert 0 <= max_perc_large_votes <= 1
-
             if perc_large_votes is not None:
-                assert 0 <= perc_large_votes <= 1
-                # Do something?
-                pass
-            # Truncated Normal Distribution
-            elif norm_mean_perc_large_votes is not None and norm_std_perc_large_votes is not None:
-                # assert min_perc_large_votes is not None and max_perc_large_votes is not None
-
-                # Ensure perc_large_votes is not bigger than n_parties
-                max_perc_large_votes = min(max_perc_large_votes, n_parties)
-
-                # Calculate n_parties using truncated normal distribution
-                perc_large_votes = trunc_norm(min_perc_large_votes, max_perc_large_votes,
-                                              norm_mean_perc_large_votes, norm_std_perc_large_votes,
-                                              n=1, round_to_int=False)
-            elif min_perc_large_votes is not None and max_perc_large_votes is not None:
-                # # Ensure perc_large_votes is not bigger than n_parties
-                # max_perc_large_votes = min(max_perc_large_votes, n_parties)
-
-                # Uniform random
-                perc_large_votes = np.random.uniform(min_perc_large_votes, max_perc_large_votes)
+                if set(perc_large_votes.keys()) != self.regs:
+                    print(f"perc_large_votes contains invalid keys. perc_large_votes.keys() = {perc_large_votes.keys()}")
+                self.perc_large_votes = perc_large_votes
             else:
-                raise ValueError
+                if not 0 < min_perc_large_votes < max_perc_large_votes < 1:
+                    raise ValueError(f"min_perc_large_votes={min_perc_large_votes} "
+                                     f"and max_perc_large_votes={max_perc_large_votes} does not satisfy condition: "
+                                     f"0 < min_perc_large_votes < max_perc_large_votes < 1")
 
-            assert min_perc_large_votes <= perc_large_votes <= max_perc_large_votes
+                if dist_type_perc_large_votes == "uniform":
+                    pass
+                elif dist_type_perc_large_votes == "trunc_normal":
+                    if mean_perc_large_votes is None or std_perc_large_votes is None:
+                        raise ValueError("mean_perc_large_votes and/or std_perc_large_votes cannot be none for "
+                                         f"dist_type_perc_large_votes = {dist_type_perc_large_votes}")
+                else:
+                    raise ValueError(f"Invalid value for dist_type_perc_large_votes={dist_type_perc_large_votes}")
+
+                perc_large_votes = {}
+                for reg in self.regs:
+                    if dist_type_perc_large_votes == "uniform":
+                        perc_large_votes[reg] = np.random.uniform(min_perc_large_votes, max_perc_large_votes)
+                    elif dist_type_perc_large_votes == "trunc_normal":
+                        perc_large_votes[reg] = trunc_norm(min_perc_large_votes, max_perc_large_votes,
+                                                           mean_perc_large_votes, std_perc_large_votes, n=1)
+                    else:
+                        raise ValueError
 
         self.perc_large_votes = perc_large_votes
-        # if perc_large_votes is None and self.is_large_parties:
-        #     perc_large_votes = np.random.uniform(perc_large_votes_min, perc_large_votes_max)
-        #
-        # self.n_large_parties = n_large_parties
-        # if self.is_large_parties and perc_large_votes_min >= perc_large_votes_max:
-        #     raise ValueError("Condition 'perc_large_votes_min < perc_large_votes_max' not met")
-
-        # self.perc_large_votes = perc_large_votes
-        # self.perc_large_votes_min = min_perc_large_votes
-        # self.perc_large_votes_max = max_perc_large_votes
         ################
 
         ################
         # INDEPENDENTS #
         ################
-        if n_inds is None:
-            if min_n_inds < 1:
-                raise ValueError(f"min_n_inds cannot be less than 1. (min_n_inds={min_n_inds})")
+        self.dist_type_n_inds = dist_type_n_inds
+        self.n_inds_mode = n_inds_mode
 
-            # Normal Distribution
-            if norm_mean_n_inds is not None and norm_std_n_inds is not None:
-                if min_n_inds is None or max_n_inds is None:
-                    raise ValueError("If n_inds is none, then min_n_inds and max_n_inds must be set")
-                # Calculate n_inds using truncated normal distribution
-                n_inds = trunc_norm(min_n_inds, max_n_inds,
-                                    norm_mean_n_large_parties, norm_std_n_large_parties,
-                                    n=1, round_to_int=True)
-            elif norm_mean_n_inds is not None or norm_std_n_inds is not None:
-                raise ValueError("Either norm_mean_n_inds and norm_std_n_inds must be set, not just one.")
-            # Poisson Distribution
-            elif pois_mean_n_inds is not None:
-                n_inds = bounded_poisson(min_n_inds, pois_mean_n_inds)
-                # n_inds = np.random.poisson(lam=pois_mean_n_inds, size=1)[0]
-            # Uniform random
+        if n_inds is None:
+            def calc_n_inds():
+                if min_n_inds < 1:
+                    raise ValueError(f"min_n_inds cannot be less than 1. (min_n_inds={min_n_inds})")
+
+                if dist_type_n_inds == "trunc_norm":
+                    assert mean_n_inds is not None
+                    assert std_n_inds is not None
+                    return trunc_norm(min_n_inds, max_n_inds, mean_n_inds, std_n_inds, n=1, round_to_int=True)
+                elif dist_type_n_inds == "pois":
+                    assert mean_n_inds is not None
+                    return bounded_poisson(min_n_inds, mean_n_inds)
+                elif dist_type_n_inds == "uniform":
+                    assert 1 <= min_n_inds < max_n_inds
+                    return np.random.randint(min_n_inds, max_n_inds + 1)
+                else:
+                    raise ValueError(f"dist_type_n_inds == {dist_type_n_inds} is not a supported value")
+
+            if n_inds_mode == "nat":
+                self.act_n_inds = calc_n_inds()
+                self.eff_n_inds = {reg: self.act_n_inds for reg in self.regs}
+            elif n_inds_mode == "reg":
+                self.eff_n_inds = {}
+                for reg in self.regs:
+                    self.eff_n_inds[reg] = calc_n_inds()
+                self.act_n_inds = max(self.eff_n_inds.values())
             else:
-                if min_n_inds is None or max_n_inds is None:
-                    raise ValueError("If n_inds is none, then min_n_inds and max_n_inds must be set")
-                n_inds = np.random.randint(min_n_inds, max_n_inds + 1)
-        self.n_inds = n_inds
+                raise ValueError(f"vary_inds_mode={n_inds_mode} is not a valid value")
+
+            # # Normal Distribution
+            # if norm_mean_n_inds is not None and norm_std_n_inds is not None:
+            #     if min_n_inds is None or max_n_inds is None:
+            #         raise ValueError("If n_inds is none, then min_n_inds and max_n_inds must be set")
+            #     # Calculate n_inds using truncated normal distribution
+            #     n_inds = trunc_norm(min_n_inds, max_n_inds,
+            #                         norm_mean_n_large_parties, norm_std_n_large_parties,
+            #                         n=1, round_to_int=True)
+            # elif norm_mean_n_inds is not None or norm_std_n_inds is not None:
+            #     raise ValueError("Either norm_mean_n_inds and norm_std_n_inds must be set, not just one.")
+            # # Poisson Distribution
+            # elif pois_mean_n_inds is not None:
+            #     n_inds = bounded_poisson(min_n_inds, pois_mean_n_inds)
+            #     # n_inds = np.random.poisson(lam=pois_mean_n_inds, size=1)[0]
+            # # Uniform random
+            # else:
+            #     if min_n_inds is None or max_n_inds is None:
+            #         raise ValueError("If n_inds is none, then min_n_inds and max_n_inds must be set")
+            #     n_inds = np.random.randint(min_n_inds, max_n_inds + 1)
+        else:
+            self.act_n_inds = n_inds
+            self.eff_n_inds = {reg:n_inds for reg in self.regs}
+
+        # act_n_inds -> actual number of independents contained in dfs
+        # eff_n_inds -> effective number of independents for purposes of calc when using zero vote hack
+        # self.n_inds = n_inds
         ################
 
         ##################
         # Error checking #
         ##################
-        if self.n_inds < min_n_inds:
-            raise ValueError(f"n_inds={self.n_inds} < min_n_inds={min_n_inds}")
+        if self.act_n_inds < min_n_inds:
+            raise ValueError(f"n_inds={self.act_n_inds} < min_n_inds={min_n_inds}")
         if self.n_parties < min_n_parties:
             raise ValueError(f"n_parties={n_parties} < min_n_parties={min_n_parties}")
         if self.n_large_parties > n_parties:
@@ -423,13 +546,22 @@ class RandomGenerator:
         ######################
         # GEN PARTY VOTES FN #
         ######################
-        def gen_party_votes_fn(tot_votes):
+        def gen_party_votes_fn(tot_votes, reg=None):
+            if reg is not None:
+                if self.is_large_parties:
+                    curr_perc_large_votes = self.perc_large_votes[reg]
+                else:
+                    curr_perc_large_votes = None
+            else:
+                curr_perc_large_votes = ...
+                raise NotImplementedError
+
             votes = gen_party_votes(
                 tot_votes=tot_votes,
                 n_parties=self.n_parties,
                 is_large_votes=self.is_large_parties,
                 rand_votes_fn=gen_rand_votes_fn,
-                perc_large_votes=perc_large_votes,
+                perc_large_votes=curr_perc_large_votes,
                 n_large=n_large_parties,
                 first_party_vote_perc=first_party_vote_perc
             )
@@ -455,19 +587,27 @@ class RandomGenerator:
 
     def _gen_reg_bal_dfs(self):
         reg_bal_dfs = {}
+        act_n_inds = self.act_n_inds
+        eff_n_inds = self.eff_n_inds
+        n_parties = self.n_parties
+
         for reg, tot_votes in self.reg_tot_votes.items():
             tot_party_votes = int(self.perc_reg_parties_votes[reg] * tot_votes)
             tot_ind_votes = tot_votes - tot_party_votes
-            n_parties = self.n_parties
-            n_inds = self.n_inds
+            curr_eff_n_inds = eff_n_inds[reg]
+            # n_inds = self.n_inds
 
-            party_votes = self.gen_party_votes_fn(tot_party_votes)
-            ind_votes = self.gen_rand_votes_fn(tot_ind_votes, n_inds)
+            party_votes = self.gen_party_votes_fn(tot_party_votes, reg=reg)
+            eff_ind_votes = self.gen_rand_votes_fn(tot_ind_votes, curr_eff_n_inds)
+            # 'Hack' for varying number of independent votes across regions
+            n_zero_ind_votes = act_n_inds - curr_eff_n_inds
+            ind_votes = [0 for _ in range(n_zero_ind_votes)] + eff_ind_votes
+            random.shuffle(ind_votes)
 
             reg_df_dict = {
-                "party": [f"party_{i+1}" for i in range(n_parties)] + [f"ind_{i+1}" for i in range(n_inds)],
+                "party": [f"party_{i+1}" for i in range(n_parties)] + [f"ind_{i+1}" for i in range(act_n_inds)],
                 "votes": party_votes + ind_votes,
-                "is_ind": [False for _ in range(n_parties)] + [True for _ in range(n_inds)]
+                "is_ind": [False for _ in range(n_parties)] + [True for _ in range(act_n_inds)]
             }
             reg_df = pd.DataFrame.from_dict(reg_df_dict)
             reg_df.set_index("party", inplace=True)
@@ -509,14 +649,14 @@ class RandomGenerator:
 
     def _gen_party_sizes(self):
         n_parties = self.n_parties
-        n_inds = self.n_inds
+        act_n_inds = self.act_n_inds
 
         # Regional
         reg_bal_dfs = self.reg_bal_dfs
         assert reg_bal_dfs is not None
         reg_party_sizes = {}
         for reg, tot_seats in self.reg_tot_seats.items():
-            curr_party_sizes = [tot_seats for _ in range(n_parties)] + [1 for _ in range(n_inds)]
+            curr_party_sizes = [tot_seats for _ in range(n_parties)] + [1 for _ in range(act_n_inds)]
             parties = list(reg_bal_dfs[reg].index)
             df_dict = {
                 "party": parties,
@@ -550,5 +690,30 @@ class RandomGenerator:
                 amalg_df = pd.concat([amalg_df, tmp_df], ignore_index=True)
 
         amalg_df.to_csv(file_path, index=False)
+
+    def save_gen_data(self, file_path):
+        d = {
+            "is_large_parties": [self.is_large_parties],
+            "n_parties": [self.n_parties],
+            "n_large_parties": [self.n_large_parties],
+            "act_n_inds": [self.act_n_inds]
+        }
+        df = pd.DataFrame.from_dict(d)
+        df.to_csv(file_path, index=False)
+
+    def save_reg_data(self, file_path):
+        regs_list = list(self.regs)
+        d = {
+            "reg": regs_list,
+            "eff_n_inds": [self.eff_n_inds[reg] for reg in regs_list],
+            "seats": [self.reg_tot_seats[reg] for reg in regs_list],
+            "votes": [self.reg_tot_votes[reg] for reg in regs_list],
+            "vote_turnout": [self.voter_turnout[reg] for reg in regs_list],
+            "perc_party_votes": [self.perc_reg_parties_votes[reg] for reg in regs_list],
+            "perc_large_votes": [self.perc_large_votes[reg] if self.perc_large_votes is not None else None for reg
+                                 in regs_list]
+        }
+        df = pd.DataFrame.from_dict(d)
+        df.to_csv(file_path, index=False)
 
 

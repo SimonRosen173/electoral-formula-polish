@@ -4,3 +4,7 @@
 **/results/**
 **/~$*
 /electoral_formula/data_alt/**
+/electoral_formula/datagen/data/**
+/electoral_formula/datagen/ballot/**
+/notebooks/data/**
+/notebooks/figs/**

@@ -282,7 +282,7 @@ def rand_exp(
         "min_diff_seats": 0,
         "max_diff_perc": 0,
         "mean_diff_perc": 0,
-        "min_diff_perc": 0
+        "min_diff_perc": 0,
     }
 
     tot_nat_orig_stats = {
@@ -318,7 +318,7 @@ def rand_exp(
             **data_gen_kwargs
         )
 
-        # rand_gen.save_reg_bal_dfs(f"{folder_path}/ballot_{i}.csv")
+        rand_gen.save_reg_bal_dfs(f"{folder_path}/ballot/ballot_{i}.csv")
 
         #######################
         # AMENDED NAT FORMULA #

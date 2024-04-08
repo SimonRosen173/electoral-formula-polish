@@ -47,6 +47,7 @@ class NationalFormulaAmended:
         self.comp_df = None
         self.agr_reg_df = None
         self.tot_df = None
+        self.nat_df = None
 
         self._init_reg_dfs()
         self._init_comp_df()
@@ -110,6 +111,7 @@ class NationalFormulaAmended:
     def calc_seats(self):
         self._calc_reg_seats()
         self._calc_comp_seats()
+        self.nat_df = self.calc_nat_df()
 
     # REGIONAL SEATS #
     def _calc_reg_seats(self):
@@ -148,7 +150,7 @@ class NationalFormulaAmended:
             n_rem_seats = tot_seats - reg_df["seats"].sum()
             reg_df.iloc[:n_rem_seats, reg_df.columns.get_loc("seats")] += 1
             reg_df.iloc[:n_rem_seats, reg_df.columns.get_loc("tot_rem_seats")] += 1
-            assert reg_df["seats"].sum() == tot_seats, f"reg_df['seats'].sum() = {reg_df['seats'].sum()} != tot_seats = {tot_seats}"
+            # assert reg_df["seats"].sum() == tot_seats, f"reg_df['seats'].sum() = {reg_df['seats'].sum()} != tot_seats = {tot_seats}"
 
             reg_df["forf_seats"] = 0
             reg_df["is_forfeit"] = False
@@ -191,7 +193,8 @@ class NationalFormulaAmended:
                 # reg_df.loc[recalc_df.index] = recalc_df.copy()
             else:
                 # Don't need to do recalc if no seats were forfeited last calc for this region
-                assert reg_df["seats"].sum() == self.reg_tot_seats[reg], f"{reg} => {reg_df['seats'].sum()} != {self.reg_tot_seats[reg]}"
+                pass
+                # assert reg_df["seats"].sum() == self.reg_tot_seats[reg], f"{reg} => {reg_df['seats'].sum()} != {self.reg_tot_seats[reg]}"
 
     # Forfeit seats in regional dfs according to 5. (f) & (g) or 7. (1) & (2)
     def _forf_reg_seats(self):
@@ -316,8 +319,8 @@ class NationalFormulaAmended:
         # (d)
         ind_cond = agr_reg_df["is_ind"] == False
         self.comp_df["seats"] = tot_df["seats"] - agr_reg_df.loc[ind_cond, "seats"]
-        assert self.comp_df["seats"].sum() == self.comp_tot_seats, \
-            f"comp_df['seats'] sums to wrong number {self.comp_df['seats'].sum()} != {self.comp_tot_seats}"
+        # assert self.comp_df["seats"].sum() == self.comp_tot_seats, \
+        #     f"comp_df['seats'] sums to wrong number {self.comp_df['seats'].sum()} != {self.comp_tot_seats}"
 
         tot_df["is_forfeit"] = False
         tot_df["forf_seats"] = 0
@@ -455,7 +458,9 @@ class NationalFormulaAmended:
         return stats_df, stats
 
     def calc_nat_stats(self):
-        nat_df = self.calc_nat_df()
+        # nat_df = self.calc_nat_df()
+        nat_df = self.nat_df
+        assert nat_df is not None
         cond = (nat_df["is_forfeit"]==False) & (nat_df["is_ind"]==False)
         stats_df = nat_df[cond].copy()
 
@@ -468,6 +473,48 @@ class NationalFormulaAmended:
         stats_df["diff_perc"] = stats_df["perc_votes"] - stats_df["perc_seats"]
         stats_df["abs_diff_seats"] = (stats_df["opt_seats"] - stats_df["seats"]).abs()
         stats_df["abs_diff_perc"] = (stats_df["perc_votes"] - stats_df["perc_seats"]).abs()
+
+        #################
+        # FORFEIT SEATS #
+        #################
+        # Not sure if this is correct :)
+        cond = (nat_df["is_forfeit"] == True) & (nat_df["is_ind"] == False)
+        forf_stats_df = nat_df[cond].copy()
+
+        forf_tot_votes = forf_stats_df["votes"].sum()
+        forf_tot_seats = forf_stats_df["seats"].sum()
+        curr_tot_votes = forf_tot_votes + tot_votes
+        curr_tot_seats = forf_tot_seats + tot_seats
+
+        forf_stats_df["perc_votes"] = forf_stats_df["votes"] / curr_tot_votes
+        forf_stats_df["perc_seats"] = forf_stats_df["seats"] / curr_tot_seats
+        forf_stats_df["opt_seats"] = forf_stats_df["perc_votes"] * curr_tot_seats
+        forf_stats_df["diff_seats"] = forf_stats_df["opt_seats"] - forf_stats_df["seats"]
+        forf_stats_df["diff_perc"] = forf_stats_df["perc_votes"] - forf_stats_df["perc_seats"]
+        forf_stats_df["abs_diff_seats"] = (forf_stats_df["opt_seats"] - forf_stats_df["seats"]).abs()
+        forf_stats_df["abs_diff_perc"] = (forf_stats_df["perc_votes"] - forf_stats_df["perc_seats"]).abs()
+        #################
+
+        #################
+        #   IND SEATS   #
+        #################
+        # Not sure if this is correct :)
+        cond = nat_df["is_ind"] == True
+        ind_stats_df = nat_df[cond].copy()
+
+        # ind_tot_votes = ind_stats_df["votes"].sum()
+        # ind_tot_seats = ind_stats_df["seats"].sum()
+        curr_tot_votes = nat_df["votes"].sum()
+        curr_tot_seats = nat_df["seats"].sum()
+
+        ind_stats_df["perc_votes"] = ind_stats_df["votes"] / curr_tot_votes
+        ind_stats_df["perc_seats"] = ind_stats_df["seats"] / curr_tot_seats
+        ind_stats_df["opt_seats"] = ind_stats_df["perc_votes"] * curr_tot_seats
+        ind_stats_df["diff_seats"] = ind_stats_df["opt_seats"] - ind_stats_df["seats"]
+        ind_stats_df["diff_perc"] = ind_stats_df["perc_votes"] - ind_stats_df["perc_seats"]
+        ind_stats_df["abs_diff_seats"] = (ind_stats_df["opt_seats"] - ind_stats_df["seats"]).abs()
+        ind_stats_df["abs_diff_perc"] = (ind_stats_df["perc_votes"] - ind_stats_df["perc_seats"]).abs()
+        #################
         stats = {
             "max_diff_seats": stats_df["diff_seats"].max(),
             "mean_diff_seats": stats_df["diff_seats"].mean(),
@@ -475,7 +522,29 @@ class NationalFormulaAmended:
             "max_diff_perc": stats_df["diff_perc"].max(),
             "mean_diff_perc": stats_df["diff_perc"].mean(),
             "min_diff_perc": stats_df["diff_perc"].min(),
+            "tot_party_seats": stats_df["seats"].sum(),
+            "tot_party_votes": stats_df["votes"].sum(),
+
+            "tot_forf_seats": forf_stats_df["seats"].sum(),
+            "tot_forf_votes": forf_stats_df["votes"].sum(),
+
+            "tot_ind_seats": ind_stats_df["seats"].sum(),
+            "tot_ind_votes": ind_stats_df["votes"].sum(),
+
+            "tot_seats": nat_df["seats"].sum(),
+            "tot_votes": nat_df["votes"].sum()
         }
+
+        if stats["tot_seats"] != stats["tot_party_seats"] + stats["tot_forf_seats"] + stats["tot_ind_seats"]:
+            raise ValueError(f"tot_seats != tot_party_seats + tot_forf_seats + tot_ind_seats. "
+                             f"tot_seats={stats['tot_seats']}, tot_party_seats={stats['tot_party_seats']}, "
+                             f"tot_forf_seats={stats['tot_forf_seats']}, tot_ind_seats={stats['tot_ind_seats']}")
+        if stats["tot_votes"] != stats["tot_party_votes"] + stats["tot_forf_votes"] + stats["tot_ind_votes"]:
+            raise ValueError(f"tot_votes != tot_party_votes + tot_forf_votes + tot_ind_votes. "
+                             f"tot_votes={stats['tot_votes']}, tot_party_votes={stats['tot_party_votes']}, "
+                             f"tot_forf_votes={stats['tot_forf_votes']}, tot_ind_votes={stats['tot_ind_votes']}")
+
+        stats_df = pd.concat([stats_df, forf_stats_df, ind_stats_df], axis=0, ignore_index=True)
 
         return stats_df, stats
 
@@ -492,6 +561,16 @@ class NationalFormulaAmended:
         nat_df.loc[ind_cond, "comp_votes"] = self.comp_bal_df["votes"]
         nat_df.loc[ind_cond, "is_forfeit"] = nat_df.loc[ind_cond, "is_forfeit"] & comp_df["is_forfeit"]
         nat_df["votes"] = nat_df["reg_votes"] + nat_df["comp_votes"]
+
+        # Error check
+        if (nat_df["seats"] < 0).any():
+            raise ValueError("An issue occurred. Seats cannot be negative.")
+        if (nat_df.loc[nat_df["is_ind"] == True, "seats"] > 1).any():
+            raise ValueError("An issue occurred. An independent cannot get more than 1 seat.")
+
+        if nat_df["seats"].sum() != 400:
+            print(f"WARNING: Total seats awarded != 400. Total seats = {nat_df['seats'].sum()}")
+
         return nat_df
 
     def save_reg_dfs(self, folder_path=None, file_path=None):

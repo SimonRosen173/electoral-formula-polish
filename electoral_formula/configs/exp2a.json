@@ -1,0 +1,38 @@
+{
+  "exp": {
+    "formula": "amend_orig",
+    "n_runs": 1000,
+    "n_batches": 32,
+    "type": "rand",
+    "seed": 42
+  },
+  "datagen": {
+    "pois_mean_n_parties": 40,
+    "min_n_parties": 1,
+    "mean_n_inds": 5,
+    "min_n_inds": 1,
+    "dist_type_n_inds": "pois",
+    "n_inds_mode": "reg",
+    "pois_mean_n_large_parties": 3,
+    "min_n_large_parties": 0,
+    "min_perc_large_votes": 0.01,
+    "max_perc_large_votes": 0.99,
+    "mean_perc_large_votes": 0.89,
+    "std_perc_large_votes": 0.1,
+    "dist_type_perc_large_votes": "trunc_normal",
+    "mean_perc_party_votes": 0.85,
+    "std_perc_party_votes": 0.1,
+    "min_perc_party_votes": 0.01,
+    "max_perc_party_votes": 0.99,
+    "vary_voter_turnout": true,
+    "mean_reg_voter_turnout": 0.66,
+    "std_reg_voter_turnout": 0.1,
+    "dist_type_voter_turnout": "trunc_normal",
+    "vary_voter_turnout_tier": 1
+  },
+  "cluster": {
+    "partition": "stampede",
+    "job_name": "exp2a",
+    "max_parallel_repeats": 32
+  }
+}

@@ -18,7 +18,9 @@
     "min_perc_large_votes": 0.01,
     "max_perc_large_votes": 0.99,
     "norm_mean_perc_large_votes": 0.89,
-    "norm_std_perc_large_votes": 0.1
+    "norm_std_perc_large_votes": 0.1,
+
+
   },
   "cluster": {
     "partition": "stampede",
