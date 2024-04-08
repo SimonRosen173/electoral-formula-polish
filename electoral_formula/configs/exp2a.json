@@ -1,8 +1,8 @@
 {
   "exp": {
     "formula": "amend_orig",
-    "n_runs": 1000,
-    "n_batches": 32,
+    "n_runs": 33000,
+    "n_batches": 31,
     "type": "rand",
     "seed": 42
   },
