@@ -8,3 +8,5 @@
 /electoral_formula/datagen/ballot/**
 /notebooks/data/**
 /notebooks/figs/**
+
+/electoral_formula/cluster/slurms/*.slurm
