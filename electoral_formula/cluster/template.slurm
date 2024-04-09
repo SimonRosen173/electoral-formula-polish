@@ -39,4 +39,6 @@ echo All processes finished
 
 {finish_commands}
 
+rm -rf /tmp/myrun/data
+
 echo Cleaned up and done :P
