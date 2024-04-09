@@ -7,14 +7,16 @@ from tqdm import tqdm
 from electoral_formula.common_static import REGS
 from electoral_formula.formula import NationalFormulaOriginal, NationalFormulaAmended
 from electoral_formula.datagen import RandomGenerator, remove_inds, df_to_str
+from electoral_formula.utils import create_or_clear_folder, join_paths
 
 
 def join_batch_data(n_batches, folder_path, formulas):
     regs = REGS
 
     out_folder = f"{folder_path}/agr"
-    if not os.path.exists(out_folder):
-        os.mkdir(out_folder)
+    create_or_clear_folder(out_folder)
+    # if not os.path.exists(out_folder):
+    #     os.mkdir(out_folder)
 
     # file_names = {}
     if formulas == "amend":
@@ -37,26 +39,43 @@ def join_batch_data(n_batches, folder_path, formulas):
     else:
         raise ValueError(f"formulas={formulas} is not supported")
 
-    file_prefixes = {}
-    for key, val in file_names.items():
-        file_prefixes[key] = f"{folder_path}/{val}"
-
     for reg in regs:
-        file_prefixes[reg] = f"{folder_path}/reg_{reg}"
         file_names[reg] = f"reg_{reg}"
 
+    # file_prefixes = {}
+    # for key, val in file_names.items():
+    #     file_prefixes[key] = f"{folder_path}/{val}"
+    #
+    # for reg in regs:
+    #     file_prefixes[reg] = f"{folder_path}/reg_{reg}"
+    #     file_names[reg] = f"reg_{reg}"
+
     dfs = {}
-    for key, val in file_prefixes.items():
+    for key, val in file_names.items():
+        file_path = join_paths([folder_path, "run_0", f"{val}_0.csv"])
         try:
-            dfs[key] = pd.read_csv(f"{val}_0.csv")
+            dfs[key] = pd.read_csv(file_path)
         except Exception as e:
-            print(f"Error: {e}. \nkey:{key}\t val:{val}")
+            print(f"Error: {e}. \nkey: {key}\t path: {file_path}")
 
     print("Concating...")
     for i in tqdm(range(1, n_batches)):
-        for key, val in file_prefixes.items():
-            curr_df = pd.read_csv(f"{val}_{i}.csv")
+        for key, val in file_names.items():
+            file_path = join_paths([folder_path, f"run_{i}", f"{val}_{i}.csv"])
+            curr_df = pd.read_csv(file_path)
             dfs[key] = pd.concat([dfs[key], curr_df], ignore_index=True)
+
+    # for key, val in file_prefixes.items():
+    #     try:
+    #         dfs[key] = pd.read_csv(f"{val}_0.csv")
+    #     except Exception as e:
+    #         print(f"Error: {e}. \nkey:{key}\t val:{val}")
+    #
+    # print("Concating...")
+    # for i in tqdm(range(1, n_batches)):
+    #     for key, val in file_prefixes.items():
+    #         curr_df = pd.read_csv(f"{val}_{i}.csv")
+    #         dfs[key] = pd.concat([dfs[key], curr_df], ignore_index=True)
 
     print("Saving...")
     for key, file_name in file_names.items():
