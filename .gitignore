@@ -10,3 +10,4 @@
 /notebooks/figs/**
 
 /electoral_formula/cluster/slurms/*.slurm
+**/__pychache__

@@ -6,13 +6,23 @@ import argparse
 
 sys.path.append('..')
 
-from electoral_formula.utils import join_paths
+from electoral_formula.utils import join_paths, create_or_clear_folder
 
 PATH_SEP = os.path.sep
 BASE_PATH_ARR = os.path.abspath(__file__).split(PATH_SEP)[:-1]
 
 BASE_PATH = os.path.normpath(PATH_SEP.join(BASE_PATH_ARR))
 CONFIGS_FOLDER = join_paths([BASE_PATH, "configs"])
+
+
+def setup_run_folders(base_path):
+    create_or_clear_folder(base_path)
+    # Ballot
+    create_or_clear_folder(join_paths([base_path, "ballot"]))
+    # Gen Folder
+    create_or_clear_folder(join_paths([base_path, "gen_data"]))
+    # Reg Folder
+    create_or_clear_folder(join_paths([base_path, "reg_data"]))
 
 
 def main():
@@ -38,6 +48,8 @@ def main():
         assert args["folder"] is not None
 
         from electoral_formula.benchmarker import rand_exp, increasing_votes_exp
+
+        setup_run_folders(args["folder"])
 
         config_path = join_paths([CONFIGS_FOLDER, args['run']])
         with open(config_path, "r") as f:

@@ -62,7 +62,8 @@ class SlurmHandler:
         assert n_batches <= self.config["cluster"]["max_parallel_repeats"]
         run_commands = ""
         for curr_batch in range(n_batches):
-            curr_run_command = f"python3 {API_PATH} --run {self.config_path} --folder {TMP_LOCAL_DATA_FOLDER} -bn {curr_batch}"
+            curr_run_command = f"python3 {API_PATH} --run {self.config_path} " \
+                               f"--folder {TMP_LOCAL_DATA_FOLDER}/run_{curr_batch} -bn {curr_batch}"
             curr_run_command += f" > {self.run_logs_folder}/run_{curr_batch}.out 2>&1"
             curr_run_command += " &"
             run_commands += curr_run_command + "\n"
