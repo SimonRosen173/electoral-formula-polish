@@ -77,7 +77,7 @@ class SlurmHandler:
 
         # zip files
         # finish_commands += "\n" + f"zip -r {TMP_LOCAL_FOLDER}/data.zip {TMP_LOCAL_DATA_FOLDER}/agr/*"
-        finish_commands += "\n" + f"zip -r {TMP_LOCAL_FOLDER}/data.zip {TMP_LOCAL_DATA_FOLDER}/*"
+        finish_commands += "\n" + f"zip -r {TMP_LOCAL_FOLDER}/data.zip {TMP_LOCAL_DATA_FOLDER}/agr/*"
         # finish_commands += "\n" + f"zip -r {TMP_LOCAL_FOLDER}/data.zip {TMP_LOCAL_DATA_FOLDER}/*"
         finish_commands += "\n" + f"mv {TMP_LOCAL_FOLDER}/data.zip {self.cluster_data_path}/data.zip"
         slurm_str = slurm_str.replace("{finish_commands}", finish_commands)

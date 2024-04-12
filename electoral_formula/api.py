@@ -32,6 +32,9 @@ def main():
 
     parser.add_argument("--join", type=str)
 
+    parser.add_argument("-sp", "--start-perc", type=float)
+    parser.add_argument("-ep", "--end-perc", type=float)
+
     parser.add_argument("-bn", "--batch-no", type=int)
     parser.add_argument("-il", "--is-local", action="store_true")
     parser.add_argument("-f", "--folder", type=str)
@@ -72,7 +75,21 @@ def main():
                 data_gen_kwargs=datagen_kwargs, use_original=use_original, seed=seed
             )
         elif exp_config["type"] == "incr_votes":
-            raise NotImplementedError
+            if exp_config["formula"] == "amend_orig":
+                use_original = True
+            elif exp_config["formula"] == "amend":
+                use_original = False
+            else:
+                raise ValueError(f'exp_config["formula"]={exp_config["formula"]} is an invalid value')
+
+            increasing_votes_exp(
+                n_runs=exp_config['n_runs'], repeats_per_run=exp_config["repeats_per_run"],
+                batch_no=args["batch_no"],
+                start_perc=args["start_perc"], end_perc=args["end_perc"],
+                folder_path=args["folder"],
+                data_gen_kwargs=datagen_kwargs,
+                use_original=use_original
+            )
         else:
             raise ValueError(f"exp_config['type']={exp_config['type']} is an invalid value")
     elif args["join"] is not None:
