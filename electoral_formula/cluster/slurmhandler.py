@@ -45,6 +45,7 @@ class SlurmHandler:
             slurm_template = "".join(f.readlines())
 
         cluster_config = self.config["cluster"]
+
         slurm_str = slurm_template.replace("{partition}", cluster_config["partition"])
         slurm_str = slurm_str.replace("{job_name}", cluster_config["job_name"])
         slurm_str = slurm_str.replace("{slurm_logs_folder}", SLURM_LOGS_FOLDER)
@@ -59,14 +60,42 @@ class SlurmHandler:
         # RUN COMMANDS #
         ################
         n_batches = self.config["exp"]["n_batches"]
+        exp_config = self.config["exp"]
+        exp_type = exp_config["type"]
+        if exp_type == "incr_votes":
+            start_perc = exp_config["start_perc"]
+            end_perc = exp_config["end_perc"]
+            perc_step = (end_perc - start_perc)/n_batches
+            curr_start_perc = start_perc
+            curr_end_perc = start_perc + perc_step
+            print(perc_step)
+        else:
+            start_perc = None
+            end_perc = None
+            curr_start_perc = None
+            curr_end_perc = None
+            perc_step = None
+
         assert n_batches <= self.config["cluster"]["max_parallel_repeats"]
         run_commands = ""
         for curr_batch in range(n_batches):
             curr_run_command = f"python3 {API_PATH} --run {self.config_path} " \
                                f"--folder {TMP_LOCAL_DATA_FOLDER}/run_{curr_batch} -bn {curr_batch}"
+
+            if exp_type == "incr_votes":
+                curr_run_command += f" -sp {curr_start_perc} -ep {curr_end_perc}"
+
             curr_run_command += f" > {self.run_logs_folder}/run_{curr_batch}.out 2>&1"
             curr_run_command += " &"
             run_commands += curr_run_command + "\n"
+
+            if exp_type == "incr_votes":
+                curr_start_perc += perc_step
+                if curr_batch == n_batches - 2:
+                    curr_end_perc = end_perc
+                else:
+                    curr_end_perc = curr_start_perc + perc_step
+
         slurm_str = slurm_str.replace("{run_commands}", run_commands)
         ################
 
