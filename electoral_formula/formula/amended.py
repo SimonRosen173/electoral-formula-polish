@@ -544,7 +544,7 @@ class NationalFormulaAmended:
                              f"tot_votes={stats['tot_votes']}, tot_party_votes={stats['tot_party_votes']}, "
                              f"tot_forf_votes={stats['tot_forf_votes']}, tot_ind_votes={stats['tot_ind_votes']}")
 
-        stats_df = pd.concat([stats_df, forf_stats_df, ind_stats_df], axis=0, ignore_index=True)
+        stats_df = pd.concat([stats_df, forf_stats_df, ind_stats_df], axis=0)  #, ignore_index=True)
 
         return stats_df, stats
 
