@@ -2,12 +2,12 @@
   "exp": {
     "formula": "amend_orig",
     "n_runs": 100,
-    "n_batches": 1,
+    "n_batches": 32,
     "type": "incr_votes",
     "seed": 42,
-    "repeats_per_run": 10,
-    "start_perc": 0.01,
-    "end_perc": 0.99
+    "repeats_per_run": 320,
+    "start_perc": 0.005,
+    "end_perc": 0.995
   },
   "datagen": {
     "pois_mean_n_parties": 40,
